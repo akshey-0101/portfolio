@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to My Portfolio</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    background-size: 400% 400%;
+    animation: bgAnimation 15s ease infinite;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    color: white;
+    flex-direction: column;
+  }
+  @keyframes bgAnimation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  h1 {
+    font-size: 3em;
+    font-weight: 700;
+    z-index: 2;
+    margin: 0;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(0, 255, 150, 0.8);
+  }
+  button {
+    z-index: 2;
+    background: transparent;
+    border: 2px solid white;
+    padding: 12px 25px;
+    color: white;
+    font-size: 18px;
+    border-radius: 30px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s ease;
+  }
+  button:hover {
+    background: white;
+    color: black;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="ballCanvas"></canvas>
+<h1>Welcome to My Portfolio</h1>
+<button onclick="window.location.href='home.html'">Enter My Portfolio</button>
+
+<script>
+const canvas = document.getElementById('ballCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let mouseX = -1000, mouseY = -1000; // start far away
+
+class Ball {
+  constructor(x, y, r, color1, color2) {
+    this.x = x;
+    this.y = y;
+    this.r = r;
+    this.color1 = color1;
+    this.color2 = color2;
+    this.vx = 0;
+    this.vy = 0;
+    this.spin = 0;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.spin);
+
+    const gradient = ctx.createRadialGradient(0, 0, this.r * 0.2, 0, 0, this.r);
+    gradient.addColorStop(0, this.color1);
+    gradient.addColorStop(1, this.color2);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.shadowColor = this.color1;
+    ctx.shadowBlur = 30;
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(-this.r / 3, -this.r / 4, this.r / 8, 0, Math.PI * 2);
+    ctx.arc(this.r / 3, -this.r / 4, this.r / 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Smile
+    ctx.beginPath();
+    ctx.arc(0, 0, this.r / 2, 0.1 * Math.PI, 0.9 * Math.PI);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "black";
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  update(balls) {
+    let dx = this.x - mouseX;
+    let dy = this.y - mouseY;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist < this.r + 100) {
+      let angle = Math.atan2(dy, dx);
+      let force = (this.r + 100 - dist) * 0.02; // smoother force
+      this.vx += Math.cos(angle) * force;
+      this.vy += Math.sin(angle) * force;
+    }
+
+    // Friction
+    this.vx *= 0.95;
+    this.vy *= 0.95;
+
+    // Limit speed
+    const maxSpeed = 4;
+    this.vx = Math.max(-maxSpeed, Math.min(maxSpeed, this.vx));
+    this.vy = Math.max(-maxSpeed, Math.min(maxSpeed, this.vy));
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Bounce on walls
+    if (this.x - this.r < 0) { this.x = this.r; this.vx *= -1; }
+    if (this.x + this.r > canvas.width) { this.x = canvas.width - this.r; this.vx *= -1; }
+    if (this.y - this.r < 0) { this.y = this.r; this.vy *= -1; }
+    if (this.y + this.r > canvas.height) { this.y = canvas.height - this.r; this.vy *= -1; }
+
+    // Collisions
+    for (let other of balls) {
+      if (this === other) continue;
+      let dx = other.x - this.x;
+      let dy = other.y - this.y;
+      let dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < this.r + other.r) {
+        let angle = Math.atan2(dy, dx);
+        let overlap = (this.r + other.r - dist) / 2;
+        this.x -= overlap * Math.cos(angle);
+        this.y -= overlap * Math.sin(angle);
+        other.x += overlap * Math.cos(angle);
+        other.y += overlap * Math.sin(angle);
+
+        // Swap velocities
+        [this.vx, other.vx] = [other.vx, this.vx];
+        [this.vy, other.vy] = [other.vy, this.vy];
+      }
+    }
+
+    // Self spin
+    this.spin += 0.02;
+
+    this.draw();
+  }
+}
+
+const colors = [
+  ['#ff4b1f', '#1fddff'],
+  ['#ff0080', '#7928ca'],
+  ['#00c6ff', '#0072ff'],
+  ['#f7971e', '#ffd200']
+];
+
+let balls = [];
+for (let i = 0; i < 4; i++) {
+  balls.push(new Ball(
+    Math.random() * (canvas.width - 200) + 100,
+    Math.random() * (canvas.height - 200) + 100,
+    70,
+    colors[i % colors.length][0],
+    colors[i % colors.length][1]
+  ));
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let ball of balls) {
+    ball.update(balls);
+  }
+  requestAnimationFrame(animate);
+}
+animate();
+
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+// Auto redirect after 8 seconds
+setTimeout(() => {
+  window.location.href = "home.html";
+}, 50000000);
+</script>
+
+</body>
+</html>
